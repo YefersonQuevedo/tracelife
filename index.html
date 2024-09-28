@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesar Relatos</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCCidlBPIRUCl6L8g3PPd0-Pbc57CCbPac&libraries=places"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f7f7f7;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 8px;
+            color: #4d4d4d;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #bfbfbf;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-record {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .btn-stop {
+            background-color: #95a5a6;
+            color: white;
+        }
+        #resultado, #transcription {
+            margin-top: 20px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+        #status {
+            font-weight: 600;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #666;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #map {
+            height: 300px;
+            width: 100%;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+        .info-card {
+            background-color: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px; /* Más compacto */
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        .info-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        #resultado {
+            display: none;
+        }
+        .modal {
+            display: none; /* Oculto por defecto */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5); /* Fondo oscuro */
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+            text-align: center;
+            position: relative;
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enviar Relato para Procesar</h1>
+
+        <label for="relato">Introduce el relato:</label>
+        <textarea id="relato" placeholder="Escribe el relato aquí..."></textarea>
+
+        <button class="btn-primary" onclick="enviarRelato()">Enviar Relato Escrito</button>
+
+        <h2>O Graba tu Relato</h2>
+        <button id="start-record-btn" class="btn-record">Iniciar Grabación</button>
+        <button id="stop-record-btn" class="btn-stop" disabled>Detener Grabación</button>
+        <p id="status"></p>
+
+        <h2>Transcripción de Voz</h2>
+        <div id="transcription"></div>
+
+        <button class="btn-primary" onclick="toggleResultados()">Mostrar/Ocultar Resultados</button>
+
+        <div class="loader" id="loader"></div>
+        <div id="resultado"></div>
+        <div id="map"></div>
+    </div>
+    
+    <!-- Modal para el mensaje de apoyo -->
+    <div id="modalApoyo" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="cerrarModal()">&times;</span>
+            <h3>Mensaje de Apoyo</h3>
+            <p>
+                Sé que la búsqueda de tu familiar es una carga muy pesada, pero quiero que sepas que hay muchas personas que te acompañan en este proceso. La UBPD es una entidad que trabaja incansablemente para encontrar a las personas desaparecidas. Ellos están comprometidos con la verdad, la justicia y la reparación. Aunque el camino sea largo y difícil, no pierdas la esperanza. Juntos podremos encontrar respuestas.
+            </p>
+            <p>
+                Para continuar con el proceso, por favor acérquese a la Unidad de Búsqueda de Personas Desaparecidas (UBPD). Allí podrá recibir la orientación necesaria.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let marker;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 4.710989, lng: -74.072092},
+                zoom: 11
+            });
+        }
+
+        function enviarRelato() {
+            const relato = document.getElementById('relato').value;
+            const loader = document.getElementById('loader');
+            const resultado = document.getElementById('resultado');
+
+            loader.style.display = 'block';
+            resultado.style.display = 'none';
+
+            fetch('https://5648-186-31-27-110.ngrok-free.app/procesar_relato', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ relato: relato })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loader.style.display = 'none';
+                mostrarResultados(data.datos);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                loader.style.display = 'none';
+                resultado.innerHTML = `
+                    <p style="color: red;">Hubo un error al procesar el relato.</p>
+                `;
+            });
+        }
+
+        function mostrarResultados(datos) {
+            const resultado = document.getElementById('resultado');
+            let html = '<h2>Información Procesada</h2>';
+
+            // Datos del servidor: mostrar toda la información
+            html += `
+                <div class="info-card">
+                    <h3>Datos de la Persona Desaparecida</h3>
+                    <p><strong>Nombre:</strong> Anonimizado</p>
+                    <p><strong>Primer Apellido:</strong> Anonimizado</p>
+                    <p><strong>Fecha de Desaparición:</strong> ${datos.fechaDesaparicion || 'No especificada'}</p>
+                    <p><strong>Municipio de Residencia:</strong> ${datos.municipioResidencia || 'No especificado'}</p>
+                    <p><strong>País:</strong> ${datos.pais || 'No especificado'}</p>
+                    <p><strong>Primera Ubicación:</strong> ${datos.primeraubicaciondeldesaparecido || 'No especificada'}</p>
+                    <p><strong>Última Ubicación:</strong> ${datos.ultimaubicaciondeldesaparecido || 'No especificada'}</p>
+                    <p><strong>Tipo de Solicitud:</strong> ${datos.tipoSolicitud || 'No especificada'}</p>
+                    <p><strong>Es Campesino:</strong> ${datos.esCampesino ? 'Sí' : 'No'}</p>
+                    <p><strong>Es Persona Trans:</strong> ${datos.esPersonaTrans ? 'Sí' : 'No'}</p>
+                    <p><strong>Es Víctima de Conflicto Armado:</strong> ${datos.esVictimaConflictoArmado ? 'Sí' : 'No'}</p>
+                    <p><strong>Fecha de Nacimiento:</strong> ${datos.fechaNacimiento || 'No especificada'}</p>
+                    <p><strong>Orientación Sexual:</strong> ${datos.orientacionSexual || 'No especificada'}</p>
+                    <p><strong>Nacionalidad:</strong> ${datos.nacionalidad || 'No especificada'}</p>
+                    <p><strong>Pertenencia Étnica:</strong> ${datos.pertenenciaEtnica || 'No especificada'}</p>
+                    <p><strong>Grupo Responsable de la Desaparición:</strong> ${datos.grupoPersonaResponsableDelDesaparecimiento || 'No especificado'}</p>
+                </div>
+            `;
+
+            // Datos adicionales si están disponibles
+        if (datos.esVictimaConflictoArmado) {
+            mostrarModal();
+            html += `
+                <p><strong>Es Víctima de Conflicto Armado:</strong> Sí</p>
+                <p>
+                Sé que la búsqueda de tu familiar es una carga muy pesada, pero quiero que sepas que hay muchas personas que te acompañan en este proceso. La UBPD es una entidad que trabaja incansablemente para encontrar a las personas desaparecidas. Ellos están comprometidos con la verdad, la justicia y la reparación. Aunque el camino sea largo y difícil, no pierdas la esperanza. Juntos podremos encontrar respuestas.
+                </p>
+            `;
+        } else {
+        html += `<p><strong>Es Víctima de Conflicto Armado:</strong> No</p>`;
+        }
+
+            resultado.innerHTML = html;
+            resultado.style.display = 'block';
+
+            // Actualizar el mapa
+            actualizarMapa(datos);
+        }
+
+        function toggleResultados() {
+            const resultado = document.getElementById('resultado');
+            if (resultado.style.display === 'none') {
+                resultado.style.display = 'block';
+            } else {
+                resultado.style.display = 'none';
+            }
+        }
+        function mostrarModal() {
+            const modal = document.getElementById('modalApoyo');
+            modal.style.display = 'block';
+        }
+
+        function cerrarModal() {
+            const modal = document.getElementById('modalApoyo');
+            modal.style.display = 'none';
+        }
+
+        // Cerrar el modal cuando el usuario hace clic fuera del contenido
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalApoyo');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function actualizarMapa(datos) {
+            const geocoder = new google.maps.Geocoder();
+            const address = `${datos.municipioResidencia}, ${datos.pais}`;
+
+            geocoder.geocode({ 'address': address }, function(results, status) {
+                if (status === 'OK') {
+                    map.setCenter(results[0].geometry.location);
+                    if (marker) {
+                        marker.setMap(null);
+                    }
+                    marker = new google.maps.Marker({
+                        map: map,
+                        position: results[0].geometry.location,
+                        title: datos.nombreDesaparecido
+                    });
+                } else {
+                    console.error('Geocode was not successful for the following reason: ' + status);
+                }
+            });
+        }
+
+        // Código de reconocimiento de voz
+        let recognition;
+        let isRecording = false;
+
+        const startRecordBtn = document.getElementById('start-record-btn');
+        const stopRecordBtn = document.getElementById('stop-record-btn');
+        const status = document.getElementById('status');
+        const transcription = document.getElementById('transcription');
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'es-ES';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            startRecordBtn.addEventListener('click', function() {
+                if (!isRecording) {
+                    recognition.start();
+                    status.innerText = 'Grabando...';
+                    startRecordBtn.disabled = true;
+                    stopRecordBtn.disabled = false;
+                    isRecording = true;
+                }
+            });
+
+            stopRecordBtn.addEventListener('click', function() {
+                if (isRecording) {
+                    recognition.stop();
+                    status.innerText = 'Grabación detenida.';
+                    startRecordBtn.disabled = false;
+                    stopRecordBtn.disabled = true;
+                    isRecording = false;
+                }
+            });
+
+            recognition.onresult = function(event) {
+                let final_transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        final_transcript += event.results[i][0].transcript;
+                    }
+                }
+                transcription.innerText = final_transcript;
+                document.getElementById('relato').value = final_transcript;
+            };
+
+            recognition.onerror = function(event) {
+                status.innerText = 'Error en el reconocimiento: ' + event.error;
+            };
+        } else {
+            alert('Lo siento, tu navegador no soporta el reconocimiento de voz.');
+        }
+
+        // Inicializar el mapa
+        window.onload = initMap;
+    </script>
+</body>
+</html>
